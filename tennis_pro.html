@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎾 Tennis Pro — Analyse & Stats</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1923;
+      --surface: #1e2d3d;
+      --surface2: #243447;
+      --surface3: #2a3d52;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.15);
+      --text: #e8f0f8;
+      --text2: #8fa8c0;
+      --text3: #5a7a96;
+      --accent: #3b9eff;
+      --accent2: #1a7fd4;
+      --accent-glow: rgba(59,158,255,0.18);
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+      --green-bg: #0d2818; --green-border: #16a34a; --green-text: #4ade80; --green-sub: #86efac;
+      --amber-bg: #291a03; --amber-border: #d97706; --amber-text: #fbbf24; --amber-sub: #fcd34d;
+      --red-bg: #2a0a0a;   --red-border: #dc2626;   --red-text: #f87171;   --red-sub: #fca5a5;
+      --dot-pass: #22c55e; --dot-fail: #ef4444; --dot-empty: #3a5068;
+    }
+
+    /* ── LOCK SCREEN ── */
+    #lock-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      background-image: radial-gradient(ellipse at 30% 20%, rgba(59,158,255,0.08) 0%, transparent 60%);
+    }
+    .lock-box {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 18px; padding: 2.5rem 2rem;
+      width: 100%; max-width: 340px; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .lock-icon { font-size: 40px; margin-bottom: 12px; }
+    .lock-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .lock-sub { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+    .lock-input {
+      width: 100%; font-size: 15px; padding: 10px 14px;
+      border-radius: var(--radius-md); border: 1px solid var(--border2);
+      background: var(--surface2); color: var(--text);
+      text-align: center; letter-spacing: 2px; margin-bottom: 12px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .lock-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .lock-btn {
+      width: 100%; padding: 11px; font-size: 14px; font-weight: 600;
+      border-radius: var(--radius-md); border: none;
+      background: linear-gradient(135deg, #3b9eff, #1a7fd4); color: #fff; cursor: pointer;
+      box-shadow: 0 3px 14px rgba(59,158,255,0.38);
+      transition: opacity 0.15s;
+    }
+    .lock-btn:hover { opacity: 0.9; }
+    .lock-error { font-size: 12.5px; color: var(--red-text); margin-top: 10px; display: none; }
+
+    /* ── LAYOUT ── */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(59,158,255,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 100%, rgba(34,197,94,0.04) 0%, transparent 50%);
+    }
+
+    /* ── TOP NAV ── */
+    .topnav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,25,35,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0;
+      padding: 0 1rem;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 9px;
+      padding: 12px 0; margin-right: 20px; flex-shrink: 0;
+    }
+    .nav-brand-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #3b9eff, #1a7fd4);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; box-shadow: 0 2px 8px rgba(59,158,255,0.3);
+    }
+    .nav-brand-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .nav-tabs { display: flex; gap: 2px; flex: 1; }
+    .nav-tab {
+      padding: 10px 18px; font-size: 13px; font-weight: 600;
+      border-radius: var(--radius-sm); border: none; background: transparent;
+      color: var(--text3); cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-tab:hover { color: var(--text2); background: rgba(255,255,255,0.04); }
+    .nav-tab.active { color: var(--accent); background: rgba(59,158,255,0.1); }
+
+    /* ── PAGES ── */
+    .page { display: none; padding: 1.5rem 1rem 5rem; }
+    .page.active { display: block; }
+    .page-inner { max-width: 660px; margin: 0 auto; }
+    #page-stats .page-inner { max-width: 720px; }
+
+    /* ── SHARED COMPONENTS ── */
+    .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .page-header-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, #3b9eff, #1a7fd4);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center; font-size: 21px;
+      box-shadow: 0 4px 14px rgba(59,158,255,0.32); flex-shrink: 0;
+    }
+    .page-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .page-subtitle { font-size: 13px; color: var(--text3); margin-bottom: 1.4rem; padding-left: 54px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1.1rem 1.2rem; margin-bottom: 0.9rem;
+    }
+    .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .card-icon {
+      width: 26px; height: 26px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+    }
+    .card-icon.blue   { background: rgba(59,158,255,0.15); }
+    .card-icon.amber  { background: rgba(245,158,11,0.15); }
+    .card-icon.green  { background: rgba(34,197,94,0.15); }
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 130px; }
+    .field label { font-size: 12px; color: var(--text2); font-weight: 500; }
+    input[type="text"], input[type="number"], input[type="password"], select, textarea {
+      font-size: 14px; padding: 8px 10px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border2);
+      background: var(--surface2); color: var(--text); width: 100%;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    select option { background: #1e2d3d; }
+
+    /* ── QUICK LINKS ── */
+    .quick-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+    .quick-link {
+      display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+      border-radius: var(--radius-md); text-decoration: none; border: 1px solid transparent;
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .quick-link:hover { transform: translateY(-2px); filter: brightness(1.12); }
+    .quick-link.ta { background: linear-gradient(135deg, #0d2f5e, #1a5a9e); border-color: rgba(59,130,246,0.3); box-shadow: 0 2px 14px rgba(26,90,158,0.35); }
+    .quick-link.ted { background: linear-gradient(135deg, #450808, #8b1a1a); border-color: rgba(239,68,68,0.3); box-shadow: 0 2px 14px rgba(139,26,26,0.35); }
+    .quick-link-icon { font-size: 20px; flex-shrink: 0; }
+    .quick-link-text { display: flex; flex-direction: column; gap: 2px; }
+    .quick-link-name { font-size: 13px; font-weight: 700; color: #e8f0f8; }
+    .quick-link-desc { font-size: 10.5px; color: rgba(232,240,248,0.5); }
+    .quick-link-arrow { margin-left: auto; font-size: 13px; color: rgba(232,240,248,0.35); }
+
+    /* ── THRESHOLD ── */
+    .threshold-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+    .threshold-display {
+      flex: 1; min-width: 180px;
+      background: linear-gradient(135deg, rgba(59,158,255,0.1), rgba(59,158,255,0.04));
+      border: 1px solid rgba(59,158,255,0.25); border-radius: var(--radius-md); padding: 10px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .threshold-display .tl { font-size: 12px; color: var(--text2); }
+    .threshold-display .tv { font-size: 19px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+
+    /* ── CRITERIA ── */
+    .criteria-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 420px) { .criteria-grid { grid-template-columns: 1fr; } }
+    .criterion {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 11px 12px;
+      display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s, background 0.2s;
+    }
+    .criterion.pass-state  { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.05); }
+    .criterion.fail-state  { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.04); }
+    .criterion.skip-state  { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.04); }
+    .criterion label { font-size: 11.5px; color: var(--text2); line-height: 1.45; min-height: 28px; }
+    .criterion .input-row { display: flex; align-items: center; gap: 6px; }
+    .criterion .input-row input[type="number"] {
+      width: 72px; font-size: 16px; font-weight: 700; text-align: right; padding: 5px 7px;
+      background: var(--surface3); border: 1px solid var(--border2); color: var(--text);
+    }
+    .pct-sign { font-size: 13px; color: var(--text3); font-weight: 600; }
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%; background: var(--dot-empty);
+      margin-left: auto; flex-shrink: 0; transition: background 0.2s, box-shadow 0.2s;
+    }
+    .status-dot.pass { background: var(--dot-pass); box-shadow: 0 0 7px rgba(34,197,94,0.65); }
+    .status-dot.fail { background: var(--dot-fail); box-shadow: 0 0 7px rgba(239,68,68,0.55); }
+    .status-dot.skip { background: var(--amber-text); box-shadow: 0 0 7px rgba(245,158,11,0.55); }
+
+    /* H2H skip toggle */
+    .h2h-never-btn {
+      font-size: 10.5px; font-weight: 600; padding: 3px 9px;
+      border-radius: 999px; border: 1px solid rgba(245,158,11,0.35);
+      background: rgba(245,158,11,0.08); color: var(--amber-text);
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .h2h-never-btn:hover { background: rgba(245,158,11,0.18); }
+    .h2h-never-btn.active {
+      background: rgba(245,158,11,0.2); border-color: rgba(245,158,11,0.6);
+      color: var(--amber-text);
+    }
+
+    /* ── RESULT ── */
+    .result-block {
+      border-radius: var(--radius-lg); padding: 1.2rem;
+      border: 1px solid var(--border); margin-bottom: 0.9rem;
+      background: var(--surface); transition: all 0.3s;
+    }
+    .result-block.good { background: var(--green-bg); border-color: var(--green-border); box-shadow: 0 0 22px rgba(34,197,94,0.1); }
+    .result-block.mid  { background: var(--amber-bg); border-color: var(--amber-border); box-shadow: 0 0 22px rgba(245,158,11,0.1); }
+    .result-block.bad  { background: var(--red-bg);   border-color: var(--red-border);   box-shadow: 0 0 22px rgba(239,68,68,0.1); }
+    .result-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 5px; }
+    .result-emoji { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .result-verdict { font-size: 16px; font-weight: 700; color: var(--text); }
+    .result-block.good .result-verdict { color: var(--green-text); }
+    .result-block.mid  .result-verdict { color: var(--amber-text); }
+    .result-block.bad  .result-verdict { color: var(--red-text); }
+    .result-sub { font-size: 12.5px; color: var(--text2); padding-left: 32px; }
+    .result-block.good .result-sub { color: var(--green-sub); }
+    .result-block.mid  .result-sub { color: var(--amber-sub); }
+    .result-block.bad  .result-sub { color: var(--red-sub); }
+    .criteria-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .crit-badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600; border: 1px solid transparent; }
+    .crit-badge.pass  { background: rgba(34,197,94,0.13);  color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .crit-badge.fail  { background: rgba(239,68,68,0.13);  color: #f87171; border-color: rgba(239,68,68,0.3); }
+    .crit-badge.skip  { background: rgba(245,158,11,0.13); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+    .crit-badge.empty { background: var(--surface2); color: var(--text3); border-color: var(--border); }
+
+    /* ── BUTTONS ── */
+    .btn-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .btn-analyze {
+      flex: 1; padding: 12px; font-size: 14px; font-weight: 600;
+      border-radius: var(--radius-md); border: none;
+      background: linear-gradient(135deg, #3b9eff, #1a7fd4); color: #fff; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 3px 14px rgba(59,158,255,0.38);
+    }
+    .btn-analyze:hover { opacity: 0.9; }
+    .btn-analyze:active { transform: scale(0.98); }
+    .btn-save {
+      padding: 12px 16px; font-size: 13px; font-weight: 600;
+      border-radius: var(--radius-md); border: 1px solid rgba(34,197,94,0.4);
+      background: rgba(34,197,94,0.1); color: #4ade80;
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-save:hover { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.6); }
+    .btn-reset {
+      width: 100%; padding: 9px; font-size: 12.5px;
+      border-radius: var(--radius-md); border: 1px solid var(--border);
+      background: transparent; color: var(--text3); cursor: pointer;
+      transition: background 0.15s, color 0.15s; margin-bottom: 1.5rem;
+    }
+    .btn-reset:hover { background: var(--surface); color: var(--text2); }
+
+    /* ── SAVED ── */
+    .saved-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .saved-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); display: flex; align-items: center; gap: 7px; }
+    .saved-count { background: rgba(59,158,255,0.15); color: var(--accent); font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(59,158,255,0.25); }
+    .saved-empty { text-align: center; padding: 1.5rem; color: var(--text3); font-size: 13px; background: var(--surface); border: 1px dashed var(--border2); border-radius: var(--radius-md); }
+    .saved-empty-icon { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.45; }
+    .saved-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 11px 13px; margin-bottom: 7px;
+      display: flex; align-items: center; gap: 10px; transition: border-color 0.15s, background 0.15s;
+    }
+    .saved-item:hover { border-color: var(--border2); background: var(--surface2); }
+    .saved-item.good    { border-left: 3px solid var(--green-border); }
+    .saved-item.mid     { border-left: 3px solid var(--amber-border); }
+    .saved-item.bad     { border-left: 3px solid var(--red-border); }
+    .saved-item.neutral { border-left: 3px solid var(--border2); }
+    .saved-item-info { flex: 1; min-width: 0; cursor: pointer; }
+    .saved-item-players { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .saved-item-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .saved-item-verdict { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; border: 1px solid transparent; }
+    .saved-item-verdict.good    { background: rgba(34,197,94,0.13); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .saved-item-verdict.mid     { background: rgba(245,158,11,0.13); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+    .saved-item-verdict.bad     { background: rgba(239,68,68,0.13);  color: #f87171; border-color: rgba(239,68,68,0.3); }
+    .saved-item-verdict.neutral { background: var(--surface2); color: var(--text3); border-color: var(--border); }
+    .btn-delete {
+      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      border: 1px solid rgba(239,68,68,0.22); background: rgba(239,68,68,0.07);
+      color: rgba(239,68,68,0.65); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .btn-delete:hover { background: rgba(239,68,68,0.2); color: #f87171; border-color: rgba(239,68,68,0.5); }
+
+    /* ── STATS PAGE ── */
+    .how-to {
+      background: rgba(59,158,255,0.07); border: 1px solid rgba(59,158,255,0.18);
+      border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 14px;
+      font-size: 12.5px; color: var(--text2); line-height: 1.6;
+    }
+    .how-to b { color: var(--accent); }
+    .how-to ol { padding-left: 18px; margin-top: 6px; }
+    .how-to li { margin-bottom: 3px; }
+    .options-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: flex-end; }
+    textarea {
+      min-height: 160px; font-size: 12px; font-family: 'Courier New', monospace;
+      padding: 10px 12px; resize: vertical; line-height: 1.4; color: var(--text2);
+    }
+    textarea:focus { color: var(--text); }
+    textarea::placeholder { color: var(--text3); }
+    .btn-stats-analyze {
+      width: 100%; padding: 12px; font-size: 14px; font-weight: 600;
+      border-radius: var(--radius-md); border: none;
+      background: linear-gradient(135deg, #3b9eff, #1a7fd4); color: #fff; cursor: pointer;
+      box-shadow: 0 3px 14px rgba(59,158,255,0.38); margin-top: 10px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-stats-analyze:hover { opacity: 0.9; }
+    .btn-stats-analyze:active { transform: scale(0.98); }
+
+    .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+    @media (max-width: 480px) { .results-grid { grid-template-columns: 1fr 1fr; } }
+    .stat-block { border-radius: var(--radius-md); padding: 14px 12px; border: 1px solid var(--border); text-align: center; }
+    .stat-block.neutral  { background: var(--surface2); border-color: var(--border2); }
+    .stat-block.wins     { background: var(--green-bg); border-color: var(--green-border); }
+    .stat-block.losses   { background: var(--red-bg);   border-color: var(--red-border); }
+    .stat-block.pct-good { background: var(--green-bg); border-color: var(--green-border); }
+    .stat-block.pct-mid  { background: var(--amber-bg); border-color: var(--amber-border); }
+    .stat-block.pct-bad  { background: var(--red-bg);   border-color: var(--red-border); }
+    .stat-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 6px; }
+    .stat-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+    .stat-block.neutral  .stat-value { color: var(--text); }
+    .stat-block.wins     .stat-value { color: var(--green-text); }
+    .stat-block.losses   .stat-value { color: var(--red-text); }
+    .stat-block.pct-good .stat-value { color: var(--green-text); }
+    .stat-block.pct-mid  .stat-value { color: var(--amber-text); }
+    .stat-block.pct-bad  .stat-value { color: var(--red-text); }
+    .stat-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+    .verdict-block {
+      border-radius: var(--radius-lg); padding: 1.1rem 1.2rem;
+      border: 1px solid var(--border); background: var(--surface);
+      margin-bottom: 12px; display: flex; align-items: center; gap: 14px;
+    }
+    .verdict-block.good { background: var(--green-bg); border-color: var(--green-border); box-shadow: 0 0 22px rgba(34,197,94,0.1); }
+    .verdict-block.mid  { background: var(--amber-bg); border-color: var(--amber-border); box-shadow: 0 0 22px rgba(245,158,11,0.1); }
+    .verdict-block.bad  { background: var(--red-bg);   border-color: var(--red-border);   box-shadow: 0 0 22px rgba(239,68,68,0.1); }
+    .verdict-emoji { font-size: 28px; flex-shrink: 0; }
+    .verdict-title { font-size: 16px; font-weight: 700; }
+    .verdict-block.good .verdict-title { color: var(--green-text); }
+    .verdict-block.mid  .verdict-title { color: var(--amber-text); }
+    .verdict-block.bad  .verdict-title { color: var(--red-text); }
+    .verdict-sub { font-size: 12.5px; color: var(--text2); margin-top: 3px; }
+
+    .player-info {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .player-name-big { font-size: 16px; font-weight: 700; color: var(--text); }
+    .player-rank-chip { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: rgba(59,158,255,0.15); color: var(--accent); border: 1px solid rgba(59,158,255,0.3); }
+    .threshold-chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(245,158,11,0.15); color: var(--amber-text); border: 1px solid rgba(245,158,11,0.3); margin-left: auto; }
+
+    .table-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .copy-btn { padding: 5px 12px; font-size: 11.5px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--surface2); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+    .copy-btn:hover { background: var(--surface3); color: var(--text); }
+    .table-wrapper { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    thead th { background: var(--surface2); color: var(--text3); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border2); white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 8px 10px; color: var(--text2); vertical-align: middle; white-space: nowrap; }
+    .badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 800; }
+    .badge.w { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .badge.l { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .opponent-name { color: var(--text); font-weight: 600; }
+    .tag-highlight { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; margin-left: 4px; background: rgba(59,158,255,0.15); color: var(--accent); border: 1px solid rgba(59,158,255,0.3); }
+    .surface-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    .s-clay   { background: #e07b39; } .s-hard { background: #3b9eff; }
+    .s-grass  { background: #22c55e; } .s-carpet { background: #a855f7; }
+
+    .error-block { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--radius-md); padding: 12px 14px; color: var(--red-text); font-size: 13px; margin-bottom: 10px; }
+    #stats-results-section { display: none; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface3); border: 1px solid var(--border2); color: var(--text);
+      font-size: 13px; font-weight: 500; padding: 10px 20px;
+      border-radius: 999px; box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.28s;
+      opacity: 0; pointer-events: none; z-index: 9998; white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ LOCK SCREEN ══════════════════ -->
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-icon">🔐</div>
+    <div class="lock-title">Tennis Pro</div>
+    <div class="lock-sub">Accès privé — entre ton mot de passe</div>
+    <input class="lock-input" type="password" id="lock-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter') checkPwd()" autofocus />
+    <button class="lock-btn" onclick="checkPwd()">Déverrouiller</button>
+    <div class="lock-error" id="lock-error">❌ Mot de passe incorrect</div>
+  </div>
+</div>
+
+<!-- ══════════════════ TOP NAV ══════════════════ -->
+<nav class="topnav">
+  <div class="nav-brand">
+    <div class="nav-brand-icon">🎾</div>
+    <span class="nav-brand-name">Tennis Pro</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('analyse')">🎯 Analyse</button>
+    <button class="nav-tab" onclick="switchTab('stats')">📊 Stats</button>
+  </div>
+</nav>
+
+<!-- ══════════════════ PAGE ANALYSE ══════════════════ -->
+<div class="page active" id="page-analyse">
+<div class="page-inner">
+
+  <div class="page-header">
+    <div class="page-header-icon">🎯</div>
+    <h1 class="page-title">Analyse de pari</h1>
+  </div>
+  <p class="page-subtitle">Évalue la rentabilité d'une cote en 4 critères</p>
+
+  <div class="quick-links">
+    <a class="quick-link ta" href="https://www.tennisabstract.com/" target="_blank" rel="noopener">
+      <span class="quick-link-icon">📊</span>
+      <div class="quick-link-text"><span class="quick-link-name">Tennis Abstract</span><span class="quick-link-desc">Stats & historique joueurs</span></div>
+      <span class="quick-link-arrow">↗</span>
+    </a>
+    <a class="quick-link ted" href="https://www.tennisendirect.net/" target="_blank" rel="noopener">
+      <span class="quick-link-icon">📡</span>
+      <div class="quick-link-text"><span class="quick-link-name">Tennis en Direct</span><span class="quick-link-desc">Scores & matchs live</span></div>
+      <span class="quick-link-arrow">↗</span>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-icon blue">👤</div><span class="section-label">Informations du match</span></div>
+    <div class="row">
+      <div class="field" style="flex:2;min-width:170px;"><label>Joueur à parier</label><input type="text" id="player1" placeholder="ex: Vesely" /></div>
+      <div class="field" style="flex:2;min-width:170px;"><label>Adversaire</label><input type="text" id="player2" placeholder="ex: Monteiro" /></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="field"><label>Classement joueur</label><input type="number" id="rank1" placeholder="ex: 84" min="1" /></div>
+      <div class="field"><label>Classement adversaire</label><input type="number" id="rank2" placeholder="ex: 131" min="1" /></div>
+      <div class="field"><label>Surface</label>
+        <select id="surface">
+          <option value="Terre battue">🟠 Terre battue</option>
+          <option value="Gazon">🟢 Gazon</option>
+          <option value="Dur intérieur">🔵 Dur intérieur</option>
+          <option value="Dur extérieur">🔵 Dur extérieur</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-icon amber">💰</div><span class="section-label">Cote &amp; seuil de rentabilité</span></div>
+    <div class="threshold-row">
+      <div class="field" style="max-width:160px;"><label>Cote pour la victoire</label><input type="number" id="cote" placeholder="ex: 1.63" min="1.01" step="0.01" oninput="updateThreshold()" /></div>
+      <div class="threshold-display"><span class="tl">Seuil de rentabilité</span><span class="tv" id="threshold-display">— %</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-icon green">📋</div><span class="section-label">4 critères d'analyse</span></div>
+    <div class="criteria-grid">
+
+      <div class="criterion" id="crit-card-0">
+        <label>% victoires sur la surface (depuis début de carrière)</label>
+        <div class="input-row">
+          <input type="number" id="crit-0" placeholder="0" min="0" max="100" step="0.1" oninput="evaluateCriteria()" />
+          <span class="pct-sign">%</span>
+          <span class="status-dot" id="dot-0"></span>
+        </div>
+      </div>
+
+      <div class="criterion" id="crit-card-1">
+        <label>% défaites adversaire surface vs TOP du J1 (20 derniers matchs)</label>
+        <div class="input-row">
+          <input type="number" id="crit-1" placeholder="0" min="0" max="100" step="0.1" oninput="evaluateCriteria()" />
+          <span class="pct-sign">%</span>
+          <span class="status-dot" id="dot-1"></span>
+        </div>
+      </div>
+
+      <div class="criterion" id="crit-card-2">
+        <label style="display:flex;align-items:center;justify-content:space-between;min-height:auto;gap:6px;">
+          <span>% victoires confrontations directes</span>
+          <button class="h2h-never-btn" id="h2h-never-btn" onclick="toggleH2HNever()" title="Jamais rencontrés — critère ignoré">Jamais joué</button>
+        </label>
+        <div class="input-row">
+          <input type="number" id="crit-2" placeholder="0" min="0" max="100" step="0.1" oninput="evaluateCriteria()" />
+          <span class="pct-sign">%</span>
+          <span class="status-dot" id="dot-2"></span>
+        </div>
+      </div>
+
+      <div class="criterion" id="crit-card-3">
+        <label>% victoires J1 surface vs TOP Adversaire (20 derniers matchs)</label>
+        <div class="input-row">
+          <input type="number" id="crit-3" placeholder="0" min="0" max="100" step="0.1" oninput="evaluateCriteria()" />
+          <span class="pct-sign">%</span>
+          <span class="status-dot" id="dot-3"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="result-block" id="result-block">
+    <div class="result-top">
+      <span class="result-emoji" id="result-emoji">⏳</span>
+      <span class="result-verdict" id="result-verdict">En attente d'analyse…</span>
+    </div>
+    <div class="result-sub" id="result-sub">Renseigne la cote et les critères pour obtenir le verdict.</div>
+    <div class="criteria-summary" id="criteria-summary"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-analyze" onclick="analyze()">▶ Analyser la rentabilité</button>
+    <button class="btn-save" onclick="saveAnalysis()">💾 Sauvegarder</button>
+  </div>
+  <button class="btn-reset" onclick="resetAll()">↺ Réinitialiser le formulaire</button>
+
+  <div class="saved-header">
+    <div class="saved-title">📁 Analyses sauvegardées <span class="saved-count" id="saved-count">0</span></div>
+  </div>
+  <div id="saved-list"></div>
+
+</div>
+</div>
+
+<!-- ══════════════════ PAGE STATS ══════════════════ -->
+<div class="page" id="page-stats">
+<div class="page-inner">
+
+  <div class="page-header">
+    <div class="page-header-icon">📊</div>
+    <h1 class="page-title">Stats Tennis Abstract</h1>
+  </div>
+  <p class="page-subtitle">Calcul automatique victoires/défaites sur les N derniers matchs filtrés</p>
+
+  <div class="card">
+    <div class="card-header"><div class="card-icon blue">📋</div><span class="section-label">Code source de la page joueur</span></div>
+    <div class="how-to">
+      <b>Comment faire :</b>
+      <ol>
+        <li>Va sur <b>tennisabstract.com</b> et ouvre la page du joueur</li>
+        <li>Clic droit → <b>"Afficher le code source"</b> (ou <b>Ctrl+U</b>)</li>
+        <li>Sélectionne tout (<b>Ctrl+A</b>), copie (<b>Ctrl+C</b>)</li>
+        <li>Colle ici (<b>Ctrl+V</b>) puis clique sur Analyser</li>
+      </ol>
+    </div>
+    <div class="options-row">
+      <div class="field"><label>Nombre de matchs</label><input type="number" id="nb-matches" value="20" min="1" max="100" /></div>
+      <div class="field"><label>Classement adversaire</label>
+        <select id="rank-filter">
+          <option value="top100">TOP 100 (≤ 100)</option>
+          <option value="out100">101+ (hors TOP 100)</option>
+        </select>
+      </div>
+      <div class="field"><label>Surface</label>
+        <select id="surface-filter">
+          <option value="all">🌐 Toutes surfaces</option>
+          <option value="Clay">🟠 Terre battue</option>
+          <option value="Hard">🔵 Dur</option>
+          <option value="Grass">🟢 Gazon</option>
+          <option value="Carpet">⬜ Moquette</option>
+        </select>
+      </div>
+      <div class="field"><label>Cote (seuil rentabilité)</label><input type="number" id="s-cote-input" placeholder="ex: 1.63" min="1.01" step="0.01" /></div>
+    </div>
+    <textarea id="source-input" placeholder="Colle ici le code source complet de la page Tennis Abstract du joueur…"></textarea>
+    <button class="btn-stats-analyze" onclick="analyzeSource()">▶ Analyser le code source</button>
+  </div>
+
+  <div id="stats-results-section">
+    <div id="error-display"></div>
+    <div id="player-info-block" class="player-info" style="display:none;">
+      <span class="player-name-big" id="player-name-display"></span>
+      <span class="player-rank-chip" id="player-rank-display"></span>
+      <span class="threshold-chip" id="threshold-chip-display" style="display:none;"></span>
+    </div>
+    <div class="results-grid" id="stats-grid" style="display:none;"></div>
+    <div id="verdict-container"></div>
+    <div class="card" id="table-card" style="display:none;">
+      <div class="table-header-row">
+        <div class="card-header" style="margin-bottom:0;"><div class="card-icon blue">📋</div><span class="section-label" id="table-title">Détail des matchs</span></div>
+        <button class="copy-btn" onclick="copyResult()">📋 Copier le %</button>
+      </div>
+      <div class="table-wrapper" style="margin-top:10px;">
+        <table>
+          <thead><tr><th>#</th><th>Date</th><th>Tournoi</th><th>Surface</th><th>Rd</th><th>Res.</th><th>Adversaire</th><th>Rk</th><th>Score</th></tr></thead>
+          <tbody id="matches-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════ PASSWORD ══════════════
+var PASS = 'tennis2026'; // <-- CHANGE TON MOT DE PASSE ICI
+
+function checkPwd() {
+  var v = document.getElementById('lock-pwd').value;
+  if (v === PASS) {
+    document.getElementById('lock-screen').style.display = 'none';
+  } else {
+    var err = document.getElementById('lock-error');
+    err.style.display = 'block';
+    document.getElementById('lock-pwd').value = '';
+    document.getElementById('lock-pwd').focus();
+    setTimeout(function(){ err.style.display = 'none'; }, 2500);
+  }
+}
+
+// ══════════════ NAV ══════════════
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.getElementById('page-' + tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ══════════════ ANALYSE ══════════════
+var savedAnalyses = JSON.parse(localStorage.getItem('paris_analyses') || '[]');
+var lastResult = null;
+var h2hNever = false;
+
+renderSavedList();
+
+function updateThreshold() {
+  var cote = parseFloat(document.getElementById('cote').value);
+  var el = document.getElementById('threshold-display');
+  el.textContent = (!isNaN(cote) && cote > 1) ? ((1/cote)*100).toFixed(2) + ' %' : '— %';
+  evaluateCriteria();
+}
+
+function getThreshold() {
+  var cote = parseFloat(document.getElementById('cote').value);
+  return (!isNaN(cote) && cote > 1) ? (1/cote)*100 : null;
+}
+
+function toggleH2HNever() {
+  h2hNever = !h2hNever;
+  var btn = document.getElementById('h2h-never-btn');
+  var input = document.getElementById('crit-2');
+  btn.classList.toggle('active', h2hNever);
+  if (h2hNever) {
+    input.value = '';
+    input.disabled = true;
+    input.style.opacity = '0.35';
+    document.getElementById('dot-2').className = 'status-dot skip';
+    document.getElementById('crit-card-2').className = 'criterion skip-state';
+  } else {
+    input.disabled = false;
+    input.style.opacity = '1';
+    evaluateCriteria();
+  }
+}
+
+function evaluateCriteria() {
+  var threshold = getThreshold();
+  [0,1,2,3].forEach(function(i) {
+    if (i === 2 && h2hNever) return; // handled by toggle
+    var val = parseFloat(document.getElementById('crit-' + i).value);
+    var dot = document.getElementById('dot-' + i);
+    var card = document.getElementById('crit-card-' + i);
+    if (threshold === null || isNaN(val)) {
+      dot.className = 'status-dot'; card.className = 'criterion';
+    } else if (val >= threshold) {
+      dot.className = 'status-dot pass'; card.className = 'criterion pass-state';
+    } else {
+      dot.className = 'status-dot fail'; card.className = 'criterion fail-state';
+    }
+  });
+}
+
+function analyze() {
+  var cote = parseFloat(document.getElementById('cote').value);
+  var threshold = getThreshold();
+  var p1 = document.getElementById('player1').value || 'le joueur';
+  var surface = document.getElementById('surface').value.replace(/^\S+\s/, '');
+
+  if (!threshold) {
+    setResult('', '⏳', 'Cote manquante', 'Renseigne une cote valide (> 1.01) pour calculer le seuil.', []);
+    return;
+  }
+
+  var labels = [
+    '% victoires sur ' + surface,
+    '% défaites adversaire vs TOP 100',
+    h2hNever ? 'H2H — jamais rencontrés (ignoré)' : '% victoires H2H',
+    '% victoires J1 surface vs hors TOP'
+  ];
+
+  // Build values — for H2H "never", we skip it entirely from scoring
+  var values = [0,1,2,3].map(function(i) {
+    if (i === 2 && h2hNever) return { val: null, label: labels[i], skipped: true };
+    var v = parseFloat(document.getElementById('crit-' + i).value);
+    return { val: isNaN(v) ? null : v, label: labels[i], skipped: false };
+  });
+
+  // Only count non-skipped, filled criteria
+  var scorable = values.filter(function(v){ return !v.skipped && v.val !== null; });
+  if (scorable.length === 0) {
+    setResult('', '⏳', 'Aucun critère renseigné', 'Remplis au moins un critère pour commencer.', []);
+    return;
+  }
+
+  var passed = scorable.filter(function(v){ return v.val >= threshold; }).length;
+  var total  = scorable.length;   // max 3 if H2H skipped, 4 otherwise
+  var ratio  = passed / total;
+
+  var cls, emoji, verdict, sub;
+  var denomStr = h2hNever ? '/' + total + ' critères (H2H ignoré)' : '/' + total + ' critères';
+
+  if (total < (h2hNever ? 3 : 4)) {
+    cls = ''; emoji = '⏳';
+    verdict = passed + denomStr + ' validés — incomplet';
+    sub = 'Renseigne les critères restants pour un verdict complet.';
+  } else if (ratio === 1) {
+    cls = 'good'; emoji = '🔥';
+    verdict = passed + denomStr + ' validés — Cote excellente !';
+    sub = 'La victoire de ' + p1 + ' à ' + cote.toFixed(2) + ' est largement rentable. Signal très fort.';
+  } else if (ratio >= 0.75) {
+    cls = 'good'; emoji = '✅';
+    verdict = passed + denomStr + ' validés — Cote rentable';
+    sub = 'Bonne opportunité. La majorité des signaux sont favorables.';
+  } else if (ratio >= 0.5) {
+    cls = 'mid'; emoji = '⚠️';
+    verdict = passed + denomStr + ' validés — Cote mitigée';
+    sub = 'Seulement la moitié des critères passent. Pari risqué, à limiter.';
+  } else {
+    cls = 'bad'; emoji = '❌';
+    verdict = passed + denomStr + ' validés — Cote non rentable';
+    sub = 'La plupart des critères échouent. Pari sur ' + p1 + ' à ' + cote.toFixed(2) + ' non recommandé.';
+  }
+
+  var criteriaData = values.map(function(v) {
+    return { label: v.label, pass: !v.skipped && v.val !== null && v.val >= threshold, empty: v.val === null && !v.skipped, skipped: v.skipped, val: v.val };
+  });
+  setResult(cls, emoji, verdict, sub, criteriaData);
+
+  lastResult = {
+    cls: cls, emoji: emoji, verdict: verdict, sub: sub,
+    player1: document.getElementById('player1').value,
+    player2: document.getElementById('player2').value,
+    rank1: document.getElementById('rank1').value,
+    rank2: document.getElementById('rank2').value,
+    surface: document.getElementById('surface').value,
+    cote: document.getElementById('cote').value,
+    crits: [0,1,2,3].map(function(i){ return document.getElementById('crit-' + i).value; }),
+    h2hNever: h2hNever,
+    passed: passed, total: total, criteria: criteriaData,
+    threshold: threshold.toFixed(2)
+  };
+}
+
+function setResult(cls, emoji, verdict, sub, criteria) {
+  document.getElementById('result-block').className = 'result-block' + (cls ? ' ' + cls : '');
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-verdict').textContent = verdict;
+  document.getElementById('result-sub').textContent = sub;
+  var summary = document.getElementById('criteria-summary');
+  summary.innerHTML = '';
+  criteria.forEach(function(c) {
+    var b = document.createElement('span');
+    if (c.skipped) {
+      b.className = 'crit-badge skip';
+      b.textContent = '⏭ H2H ignoré';
+    } else {
+      b.className = 'crit-badge ' + (c.empty ? 'empty' : c.pass ? 'pass' : 'fail');
+      var s = c.label.length > 28 ? c.label.substring(0,26) + '…' : c.label;
+      b.textContent = (c.val !== null ? c.val.toFixed(1) + '% — ' : '? — ') + s;
+    }
+    summary.appendChild(b);
+  });
+}
+
+function saveAnalysis() {
+  if (!lastResult) { showToast('⚠️ Lance d\'abord une analyse !'); return; }
+  var entry = Object.assign({ id: Date.now(), date: new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) }, lastResult);
+  savedAnalyses.unshift(entry);
+  localStorage.setItem('paris_analyses', JSON.stringify(savedAnalyses));
+  renderSavedList();
+  showToast('💾 Analyse sauvegardée !');
+}
+
+function deleteAnalysis(id, e) {
+  e.stopPropagation();
+  savedAnalyses = savedAnalyses.filter(function(a){ return a.id !== id; });
+  localStorage.setItem('paris_analyses', JSON.stringify(savedAnalyses));
+  renderSavedList();
+  showToast('🗑️ Analyse supprimée');
+}
+
+function loadAnalysis(a) {
+  document.getElementById('player1').value = a.player1 || '';
+  document.getElementById('player2').value = a.player2 || '';
+  document.getElementById('rank1').value = a.rank1 || '';
+  document.getElementById('rank2').value = a.rank2 || '';
+  document.getElementById('cote').value = a.cote || '';
+  var sel = document.getElementById('surface');
+  for (var o of sel.options) { if (o.value === a.surface) { sel.value = a.surface; break; } }
+  // restore H2H never
+  if (a.h2hNever && !h2hNever) toggleH2HNever();
+  else if (!a.h2hNever && h2hNever) toggleH2HNever();
+  a.crits.forEach(function(v, i){ document.getElementById('crit-' + i).value = v; });
+  updateThreshold();
+  analyze();
+  // switch to analyse tab
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.getElementById('page-analyse').classList.add('active');
+  document.querySelector('.nav-tab').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('📂 Analyse rechargée');
+}
+
+function renderSavedList() {
+  var list = document.getElementById('saved-list');
+  document.getElementById('saved-count').textContent = savedAnalyses.length;
+  if (savedAnalyses.length === 0) {
+    list.innerHTML = '<div class="saved-empty"><span class="saved-empty-icon">📂</span>Aucune analyse sauvegardée.<br>Lance une analyse puis clique sur "Sauvegarder".</div>';
+    return;
+  }
+  list.innerHTML = '';
+  savedAnalyses.forEach(function(a) {
+    var item = document.createElement('div');
+    item.className = 'saved-item ' + (a.cls || 'neutral');
+    var surface = (a.surface || '').replace(/^\S+\s/, '');
+    var coteStr = a.cote ? 'Cote ' + parseFloat(a.cote).toFixed(2) : '';
+    var rankStr = a.rank1 && a.rank2 ? ' · #' + a.rank1 + ' vs #' + a.rank2 : '';
+    var vl = a.cls === 'good' ? (a.passed === a.total ? '🔥 Excellent' : '✅ Rentable') : a.cls === 'mid' ? '⚠️ Mitigée' : a.cls === 'bad' ? '❌ Non rentable' : '⏳';
+    var h2hStr = a.h2hNever ? ' · H2H N/A' : '';
+    item.innerHTML = '<div class="saved-item-info"><div class="saved-item-players">' + (a.player1||'?') + ' vs ' + (a.player2||'?') + '</div><div class="saved-item-meta">' + coteStr + (surface?' · '+surface:'') + rankStr + h2hStr + ' · ' + a.date + '</div></div>' +
+      '<span class="saved-item-verdict ' + (a.cls||'neutral') + '">' + (a.passed!==undefined?a.passed+'/'+a.total:'—') + ' ' + vl + '</span>' +
+      '<button class="btn-delete" title="Supprimer">✕</button>';
+    item.querySelector('.saved-item-info').addEventListener('click', function(){ loadAnalysis(a); });
+    item.querySelector('.btn-delete').addEventListener('click', function(e){ deleteAnalysis(a.id, e); });
+    list.appendChild(item);
+  });
+}
+
+function resetAll() {
+  ['player1','player2','rank1','rank2','cote'].forEach(function(id){ document.getElementById(id).value=''; });
+  [0,1,2,3].forEach(function(i){
+    var inp = document.getElementById('crit-' + i);
+    inp.value=''; inp.disabled=false; inp.style.opacity='1';
+    document.getElementById('dot-' + i).className='status-dot';
+    document.getElementById('crit-card-' + i).className='criterion';
+  });
+  if (h2hNever) toggleH2HNever();
+  document.getElementById('surface').selectedIndex=0;
+  document.getElementById('threshold-display').textContent='— %';
+  setResult('','⏳','En attente d\'analyse…','Renseigne la cote et les critères pour obtenir le verdict.',[]);
+  lastResult=null;
+}
+
+// ══════════════ STATS ══════════════
+var _lastPctLoss = null, _lastLabel = '';
+
+function analyzeSource() {
+  var src       = document.getElementById('source-input').value.trim();
+  var nbMatches = parseInt(document.getElementById('nb-matches').value) || 20;
+  var rankMode  = document.getElementById('rank-filter').value;
+  var surfMode  = document.getElementById('surface-filter').value;
+  var coteVal   = parseFloat(document.getElementById('s-cote-input').value);
+  var threshold = (!isNaN(coteVal) && coteVal > 1) ? (1/coteVal)*100 : null;
+
+  document.getElementById('stats-results-section').style.display = 'block';
+  document.getElementById('error-display').innerHTML = '';
+  document.getElementById('stats-grid').style.display = 'none';
+  document.getElementById('table-card').style.display = 'none';
+  document.getElementById('player-info-block').style.display = 'none';
+  document.getElementById('verdict-container').innerHTML = '';
+
+  if (!src) { showError('Colle d\'abord le code source de la page Tennis Abstract.'); return; }
+
+  var playerName='', playerRank='';
+  var nm = src.match(/var fullname\s*=\s*'([^']+)'/);
+  var rm = src.match(/var currentrank\s*=\s*(\d+)/);
+  if (nm) playerName = nm[1];
+  if (rm) playerRank = rm[1];
+
+  var mmStart = src.indexOf('var matchmx = [');
+  if (mmStart === -1) { showError('Impossible de trouver les données (variable "matchmx"). Vérifie que tu as collé le bon code source.'); return; }
+
+  var depth=0, inArr=false, endIdx=mmStart;
+  for (var i=mmStart; i<src.length; i++) {
+    if (src[i]==='['){depth++;inArr=true;}
+    if (src[i]===']'){depth--;}
+    if (inArr && depth===0){endIdx=i;break;}
+  }
+  var matchmx;
+  try { matchmx = JSON.parse(src.substring(mmStart+'var matchmx = '.length, endIdx+1)); }
+  catch(e) { showError('Erreur de parsing. Assure-toi d\'avoir collé le code source complet. ('+e.message+')'); return; }
+  if (!Array.isArray(matchmx)||matchmx.length===0) { showError('Aucun match trouvé. Vérifie le code source.'); return; }
+
+  var allMatches = matchmx.map(function(m,idx){
+    return { num:idx+1, date:fmtDate(m[0]), tournament:m[1]||'', surface:m[2]||'',
+             result:m[4]==='W'?'W':'L', opponentName:m[11]||'', opponentRank:parseInt(m[12])||9999, score:m[9]||'' };
+  });
+
+  // Exclude unplayed/live
+  allMatches = allMatches.filter(function(m){
+    var s = m.score.trim().toLowerCase();
+    if (!s) return false;
+    if (s.indexOf('live')!==-1) return false;
+    if (s==='w/o') return false;
+    return true;
+  });
+
+  // Filter surface + rank together, then slice N
+  var pool = allMatches.filter(function(m){
+    var surfOk = surfMode==='all' ? true : m.surface.toLowerCase()===surfMode.toLowerCase();
+    var rankOk = rankMode==='out100' ? m.opponentRank>100 : m.opponentRank<=100;
+    return surfOk && rankOk;
+  });
+  var matches = pool.slice(0, nbMatches);
+  matches.forEach(function(m,idx){ m.num=idx+1; });
+
+  var total  = matches.length;
+  var fWins  = matches.filter(function(m){return m.result==='W';}).length;
+  var fLoss  = matches.filter(function(m){return m.result==='L';}).length;
+  var pctWin  = total>0 ? fWins/total*100 : null;
+  var pctLoss = total>0 ? fLoss/total*100 : null;
+
+  var rankLabel = rankMode==='out100' ? '101+' : 'TOP 100';
+  var surfLabel = surfMode==='all' ? 'toutes surfaces' : surfMode;
+  _lastPctLoss = pctLoss; _lastLabel = rankLabel+' · '+surfLabel;
+
+  if (playerName) {
+    document.getElementById('player-name-display').textContent = playerName;
+    document.getElementById('player-rank-display').textContent = playerRank ? 'Classement #'+playerRank : '';
+    if (threshold!==null) {
+      var chip=document.getElementById('threshold-chip-display');
+      chip.textContent='Seuil : '+threshold.toFixed(2)+'%'; chip.style.display='';
+    } else { document.getElementById('threshold-chip-display').style.display='none'; }
+    document.getElementById('player-info-block').style.display='flex';
+  }
+
+  var grid=document.getElementById('stats-grid');
+  grid.style.display='grid';
+  if (total===0) {
+    grid.innerHTML='<div class="stat-block neutral" style="grid-column:1/-1;"><div class="stat-label">Résultat</div><div class="stat-value">0</div><div class="stat-sub">Aucun match trouvé avec ces filtres</div></div>';
+  } else {
+    var pLossCls = pctLoss>=60?'pct-good':pctLoss>=40?'pct-mid':'pct-bad';
+    var pWinCls  = pctWin>=60?'pct-good':pctWin>=40?'pct-mid':'pct-bad';
+    var rentHTML='';
+    if (threshold!==null) {
+      var ok=pctLoss>=threshold;
+      rentHTML='<div class="stat-block '+(ok?'pct-good':'pct-bad')+'"><div class="stat-label">Critère &gt;'+threshold.toFixed(1)+'%</div><div class="stat-value">'+(ok?'✓':'✗')+'</div><div class="stat-sub">Défaites '+(pctLoss!==null?pctLoss.toFixed(1)+'%':'—')+' / seuil '+threshold.toFixed(1)+'%</div></div>';
+    }
+    grid.innerHTML=
+      '<div class="stat-block neutral"><div class="stat-label">'+nbMatches+' derniers matchs</div><div class="stat-value">'+total+'</div><div class="stat-sub">matchs trouvés</div></div>'+
+      '<div class="stat-block wins"><div class="stat-label">✅ Victoires</div><div class="stat-value">'+fWins+'</div><div class="stat-sub">sur '+total+' matchs</div></div>'+
+      '<div class="stat-block losses"><div class="stat-label">❌ Défaites</div><div class="stat-value">'+fLoss+'</div><div class="stat-sub">sur '+total+' matchs</div></div>'+
+      '<div class="stat-block '+pWinCls+'"><div class="stat-label">% Victoires</div><div class="stat-value">'+(pctWin!==null?pctWin.toFixed(1)+'%':'—')+'</div><div class="stat-sub">'+fWins+'/'+total+'</div></div>'+
+      '<div class="stat-block '+pLossCls+'"><div class="stat-label">% Défaites</div><div class="stat-value">'+(pctLoss!==null?pctLoss.toFixed(1)+'%':'—')+'</div><div class="stat-sub">'+fLoss+'/'+total+'</div></div>'+
+      rentHTML;
+  }
+
+  if (total>0) {
+    var cls2,em2,t2,s2;
+    if (pctLoss>=80){cls2='good';em2='🔥';t2='Excellent signal — défaites massives vs '+rankLabel;s2='L\'adversaire perd '+pctLoss.toFixed(1)+'% ('+surfLabel+'). Signal très fort.';}
+    else if(pctLoss>=60){cls2='good';em2='✅';t2='Bon signal vs '+rankLabel;s2='L\'adversaire perd '+pctLoss.toFixed(1)+'% ('+surfLabel+'). Critère favorable.';}
+    else if(pctLoss>=40){cls2='mid';em2='⚠️';t2='Signal mitigé vs '+rankLabel;s2='L\'adversaire perd '+pctLoss.toFixed(1)+'% ('+surfLabel+'). Critère incertain.';}
+    else{cls2='bad';em2='❌';t2='Signal faible vs '+rankLabel;s2='L\'adversaire ne perd que '+pctLoss.toFixed(1)+'% ('+surfLabel+'). Critère défavorable.';}
+    document.getElementById('verdict-container').innerHTML='<div class="verdict-block '+cls2+'"><span class="verdict-emoji">'+em2+'</span><div><div class="verdict-title">'+t2+'</div><div class="verdict-sub">'+s2+'</div></div></div>';
+  }
+
+  var tbody=document.getElementById('matches-tbody');
+  tbody.innerHTML='';
+  matches.forEach(function(m){
+    var sClass='s-'+m.surface.toLowerCase().replace(/[^a-z]/g,'');
+    var dot='<span class="surface-dot '+sClass+'"></span>';
+    var tag='<span class="tag-highlight">'+(rankMode==='out100'?'101+':'TOP 100')+'</span>';
+    var tr=document.createElement('tr');
+    tr.style.background='rgba(59,158,255,0.05)';
+    tr.innerHTML='<td style="color:var(--text3);font-size:11px;">'+m.num+'</td><td>'+m.date+'</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;">'+m.tournament+'</td><td>'+dot+m.surface+'</td><td style="color:var(--text3);">'+m.round+'</td><td><span class="badge '+m.result.toLowerCase()+'">'+m.result+'</span></td><td><span class="opponent-name">'+m.opponentName+'</span>'+tag+'</td><td style="font-weight:700;color:var(--accent);">#'+(m.opponentRank===9999?'?':m.opponentRank)+'</td><td style="color:var(--text3);">'+m.score+'</td>';
+    tbody.appendChild(tr);
+  });
+  document.getElementById('table-title').textContent=total+' matchs — '+rankLabel+' · '+surfLabel;
+  document.getElementById('table-card').style.display='block';
+}
+
+function fmtDate(d){ if(!d||d.length!==8)return d||''; return d.substring(6,8)+'/'+d.substring(4,6)+'/'+d.substring(0,4); }
+function showError(msg){ document.getElementById('error-display').innerHTML='<div class="error-block">⚠️ '+msg+'</div>'; }
+function copyResult(){
+  if(_lastPctLoss===null){showToast('Aucun résultat à copier');return;}
+  var txt=_lastPctLoss.toFixed(1)+'%';
+  navigator.clipboard.writeText(txt).then(function(){showToast('📋 Copié : '+txt);}).catch(function(){showToast('Valeur : '+txt);});
+}
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2500);
+}
+</script>
+</body>
+</html>
