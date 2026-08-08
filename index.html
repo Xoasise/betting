@@ -661,10 +661,34 @@ function parseFicheHTML(html) {
     }
   }
 
+  var playerName = nameMatch ? nameMatch[1].trim() : null;
+
+  var opponent = null;
+  var upcomingMatch = html.match(/non disputés \/ derniers<\/span>[\s\S]*?<table[^>]*>([\s\S]*?)<\/table>/);
+  if (upcomingMatch && !/aucun match trouvé/i.test(upcomingMatch[1])) {
+    var cellNames = [];
+    var cellRegex = /<td class="w130">([\s\S]*?)<\/td>/g;
+    var cm;
+    while ((cm = cellRegex.exec(upcomingMatch[1])) !== null && cellNames.length < 2) {
+      var cellNameMatch = cm[1].match(/<b>([^<]+)<\/b>/) || cm[1].match(/<a[^>]*>([^<]+)<\/a>/);
+      if (cellNameMatch) cellNames.push(cellNameMatch[1].trim());
+    }
+    if (cellNames.length === 2) {
+      if (playerName && cellNames[0].toLowerCase() === playerName.toLowerCase()) {
+        opponent = cellNames[1];
+      } else if (playerName && cellNames[1].toLowerCase() === playerName.toLowerCase()) {
+        opponent = cellNames[0];
+      } else {
+        opponent = cellNames[1];
+      }
+    }
+  }
+
   return {
-    name: nameMatch ? nameMatch[1].trim() : null,
+    name: playerName,
     rank: rankMatch ? rankMatch[1].trim() : null,
-    surfacePercents: surfacePercents
+    surfacePercents: surfacePercents,
+    opponent: opponent
   };
 }
 
@@ -696,6 +720,10 @@ function fillFromFiche() {
   if (data.rank) {
     document.getElementById('rank1').value = data.rank;
     found.push('classement');
+  }
+  if (data.opponent) {
+    document.getElementById('player2').value = data.opponent;
+    found.push('adversaire');
   }
   if (data.surfacePercents) {
     lastFicheData = data;
