@@ -449,7 +449,21 @@
   </div>
 
   <div class="card">
-    <div class="card-header"><div class="card-icon blue">📋</div><span class="section-label">Coller la fiche joueur (TennisEnDirect)</span></div>
+    <div class="card-header"><div class="card-icon blue">🔍</div><span class="section-label">Recherche automatique (via Cloudflare Worker)</span></div>
+    <div class="row">
+      <div class="field" style="flex:2;min-width:170px;">
+        <label>Nom complet du joueur</label>
+        <input type="text" id="search-name" placeholder="ex: Rafael Jodar" onkeydown="if(event.key==='Enter') searchAndFill()" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button class="lock-btn" style="width:auto;padding:8px 16px;" onclick="searchAndFill()">🔍 Chercher automatiquement</button>
+      <span id="search-status" style="margin-left:10px;font-size:12px;color:var(--text3);"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-icon blue">📋</div><span class="section-label">Ou coller la fiche joueur manuellement</span></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:100%;">
         <textarea id="paste-fiche" rows="3" placeholder="Colle ici le code source de la page profil du joueur…" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-md);padding:10px;font-family:monospace;font-size:11px;"></textarea>
@@ -700,6 +714,58 @@ function applyFicheSurfacePercent() {
     document.getElementById('crit-0').value = pct;
     if (typeof evaluateCriteria === 'function') evaluateCriteria();
   }
+}
+
+// ══════════════ RECHERCHE AUTOMATIQUE (Worker Cloudflare) ══════════════
+// ⚠️ Remplace cette URL par celle de ton Worker déployé
+var WORKER_URL = 'https://TON-WORKER.TON-SOUS-DOMAINE.workers.dev';
+
+function slugifyName(name) {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève les accents
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function searchAndFill() {
+  var name = document.getElementById('search-name').value.trim();
+  var statusEl = document.getElementById('search-status');
+
+  if (!name) {
+    statusEl.textContent = '⚠️ Tape un nom de joueur.';
+    return;
+  }
+  if (WORKER_URL.indexOf('TON-WORKER') !== -1) {
+    statusEl.textContent = '⚠️ Configure d\'abord WORKER_URL dans le code.';
+    return;
+  }
+
+  var slug = slugifyName(name);
+  var targetUrl = 'https://www.tennisendirect.net/atp/' + slug + '/';
+  var proxyUrl = WORKER_URL + '?url=' + encodeURIComponent(targetUrl);
+
+  statusEl.textContent = '⏳ Recherche en cours…';
+
+  fetch(proxyUrl)
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function (html) {
+      if (!/player_stats/.test(html)) {
+        statusEl.textContent = '❌ Joueur introuvable (essaie le collage manuel).';
+        return;
+      }
+      document.getElementById('paste-fiche').value = html;
+      fillFromFiche();
+      statusEl.textContent = '✅ Trouvé et rempli automatiquement.';
+    })
+    .catch(function (err) {
+      statusEl.textContent = '❌ Erreur : ' + err.message;
+    });
 }
 
 function fillFromFiche() {
