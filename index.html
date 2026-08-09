@@ -209,6 +209,13 @@
       background: rgba(245,158,11,0.2); border-color: rgba(245,158,11,0.6);
       color: var(--amber-text);
     }
+    .invert-btn {
+      font-size: 12px; font-weight: 600; padding: 4px 7px;
+      border-radius: 999px; border: 1px solid rgba(59,158,255,0.35);
+      background: rgba(59,158,255,0.08); color: var(--accent);
+      cursor: pointer; transition: all 0.15s; line-height: 1;
+    }
+    .invert-btn:hover { background: rgba(59,158,255,0.2); border-color: rgba(59,158,255,0.6); }
 
     /* ── RESULT ── */
     .result-block {
@@ -507,6 +514,7 @@
         <div class="input-row">
           <input type="number" id="crit-1" placeholder="0" min="0" max="100" step="0.1" oninput="evaluateCriteria()" />
           <span class="pct-sign">%</span>
+          <button class="invert-btn" onclick="invertCrit13()" title="Inverser avec le critère opposé">🔄</button>
           <span class="status-dot" id="dot-1"></span>
         </div>
       </div>
@@ -528,6 +536,7 @@
         <div class="input-row">
           <input type="number" id="crit-3" placeholder="0" min="0" max="100" step="0.1" oninput="evaluateCriteria()" />
           <span class="pct-sign">%</span>
+          <button class="invert-btn" onclick="invertCrit13()" title="Inverser avec le critère opposé">🔄</button>
           <span class="status-dot" id="dot-3"></span>
         </div>
       </div>
@@ -777,6 +786,23 @@ function updateThreshold() {
 function getThreshold() {
   var cote = parseFloat(document.getElementById('cote').value);
   return (!isNaN(cote) && cote > 1) ? (1/cote)*100 : null;
+}
+
+function invertCrit13() {
+  var el1 = document.getElementById('crit-1');
+  var el3 = document.getElementById('crit-3');
+  var v1 = parseFloat(el1.value);
+  var v3 = parseFloat(el3.value);
+  if (isNaN(v1) && isNaN(v3)) {
+    showToast('⚠️ Renseigne au moins une des deux valeurs');
+    return;
+  }
+  var new1 = isNaN(v3) ? el1.value : (100 - v3).toFixed(1);
+  var new3 = isNaN(v1) ? el3.value : (100 - v1).toFixed(1);
+  el1.value = new1;
+  el3.value = new3;
+  evaluateCriteria();
+  showToast('🔄 Critères inversés');
 }
 
 function toggleH2HNever() {
