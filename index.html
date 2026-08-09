@@ -1092,8 +1092,8 @@ function analyzeSource() {
   if (!Array.isArray(matchmx)||matchmx.length===0) { showError('Aucun match trouvé. Vérifie le code source.'); return; }
 
   var allMatches = matchmx.map(function(m,idx){
-    return { num:idx+1, date:fmtDate(m[0]), tournament:m[1]||'', surface:m[2]||'',
-             result:m[4]==='W'?'W':'L', opponentName:m[11]||'', opponentRank:parseInt(m[12])||9999, score:m[9]||'' };
+    return { num:idx+1, rawDate:m[0]||'', date:fmtDate(m[0]), tournament:m[1]||'', surface:m[2]||'',
+             result:m[4]==='W'?'W':'L', opponentName:m[11]||'', opponentRank:parseInt(m[12])||9999, score:m[9]||'', round:m[8]||'' };
   });
 
   // Exclude unplayed/live
@@ -1105,12 +1105,14 @@ function analyzeSource() {
     return true;
   });
 
-  // Filter surface + rank together, then slice N
+  // Filter surface + rank together, then keep the N MOST RECENT (matchmx est trié du plus ancien au plus récent)
   var pool = allMatches.filter(function(m){
     var surfOk = surfMode==='all' ? true : m.surface.toLowerCase()===surfMode.toLowerCase();
     var rankOk = rankMode==='out100' ? m.opponentRank>100 : m.opponentRank<=100;
     return surfOk && rankOk;
   });
+  // Tri du plus récent au plus ancien (comparaison de chaînes YYYYMMDD, valide car zero-paddées)
+  pool.sort(function(a,b){ return b.rawDate.localeCompare(a.rawDate); });
   var matches = pool.slice(0, nbMatches);
   matches.forEach(function(m,idx){ m.num=idx+1; });
 
